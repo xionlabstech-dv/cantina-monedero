@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatUsd } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
+import { compressImage, formatFileSize } from "@/lib/image";
 import { Avatar } from "@/components/Avatar";
 import type { Persona, TipoPersona } from "@/types/database";
 
@@ -31,9 +32,19 @@ export function PersonasTab() {
   const [form, setForm] = useState(formVacio);
   const [foto, setFoto] = useState<File | null>(null);
   const [fotoUrlActual, setFotoUrlActual] = useState<string | null>(null);
+  const [comprimiendoFoto, setComprimiendoFoto] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
+  const fotoInputRef = useRef<HTMLInputElement>(null);
+
+  const fotoPreviewUrl = useMemo(() => (foto ? URL.createObjectURL(foto) : null), [foto]);
+
+  useEffect(() => {
+    return () => {
+      if (fotoPreviewUrl) URL.revokeObjectURL(fotoPreviewUrl);
+    };
+  }, [fotoPreviewUrl]);
 
   async function cargar() {
     setCargando(true);
@@ -74,6 +85,23 @@ export function PersonasTab() {
     setFotoUrlActual(p.foto_url);
     setError(null);
     setMostrarForm(true);
+  }
+
+  async function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0];
+    e.target.value = "";
+    if (!selected) return;
+
+    setError(null);
+    setComprimiendoFoto(true);
+    try {
+      const comprimida = await compressImage(selected);
+      setFoto(comprimida);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo procesar la imagen.");
+    } finally {
+      setComprimiendoFoto(false);
+    }
   }
 
   async function subirFoto(personaId: string): Promise<string | null> {
@@ -169,15 +197,29 @@ export function PersonasTab() {
       {mostrarForm && (
         <form onSubmit={guardar} className="ticket p-4 flex flex-col gap-3">
           <div className="flex items-center gap-3">
-            <Avatar fotoUrl={foto ? URL.createObjectURL(foto) : fotoUrlActual} nombre={form.nombre || "?"} size="lg" />
-            <div>
+            <Avatar fotoUrl={fotoPreviewUrl ?? fotoUrlActual} nombre={form.nombre || "?"} size="lg" />
+            <div className="flex-1 min-w-0">
               <label className="text-xs text-ink-soft block mb-1">Foto</label>
               <input
+                ref={fotoInputRef}
                 type="file"
                 accept="image/*"
-                onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
-                className="text-xs"
+                onChange={handleFotoChange}
+                className="hidden"
               />
+              <button
+                type="button"
+                onClick={() => fotoInputRef.current?.click()}
+                disabled={comprimiendoFoto}
+                className="px-3 py-1.5 rounded-lg border border-line text-xs font-medium text-ink-soft disabled:opacity-60"
+              >
+                {comprimiendoFoto ? "Procesando..." : foto ? "Cambiar foto" : "Elegir foto"}
+              </button>
+              {foto && (
+                <p className="text-xs text-ink-soft mt-1 truncate">
+                  {formatFileSize(foto.size)}
+                </p>
+              )}
             </div>
           </div>
 
@@ -277,7 +319,7 @@ export function PersonasTab() {
           <div className="flex gap-2 mt-1">
             <button
               type="submit"
-              disabled={guardando}
+              disabled={guardando || comprimiendoFoto}
               className="flex-1 py-2.5 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-60"
             >
               {guardando ? "Guardando..." : "Guardar"}
