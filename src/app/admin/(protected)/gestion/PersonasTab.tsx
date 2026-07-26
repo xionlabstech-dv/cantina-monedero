@@ -204,6 +204,7 @@ export function PersonasTab() {
                 ref={fotoInputRef}
                 type="file"
                 accept="image/*"
+                capture="user"
                 onChange={handleFotoChange}
                 className="hidden"
               />
