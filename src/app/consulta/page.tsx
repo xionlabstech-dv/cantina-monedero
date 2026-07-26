@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatBs, formatTime, formatUsd } from "@/lib/format";
 import { CreditBar } from "@/components/CreditBar";
@@ -9,6 +9,8 @@ import type { PersonaPublico, Transaccion } from "@/types/database";
 
 type Estado = "idle" | "buscando" | "no-encontrado" | "encontrado" | "error";
 
+const SEGUNDOS_AUTO_OCULTAR = 10;
+
 export default function ConsultaPage() {
   const supabase = createClient();
   const [carnet, setCarnet] = useState("");
@@ -16,6 +18,31 @@ export default function ConsultaPage() {
   const [persona, setPersona] = useState<PersonaPublico | null>(null);
   const [movimientosHoy, setMovimientosHoy] = useState<Transaccion[]>([]);
   const [tasaBcv, setTasaBcv] = useState<number>(0);
+  const [segundosRestantes, setSegundosRestantes] = useState(SEGUNDOS_AUTO_OCULTAR);
+
+  useEffect(() => {
+    if (estado !== "encontrado") return;
+
+    const interval = setInterval(() => {
+      setSegundosRestantes((s) => {
+        if (s <= 1) {
+          clearInterval(interval);
+          setPersona(null);
+          setMovimientosHoy([]);
+          setEstado("idle");
+          setCarnet("");
+          return SEGUNDOS_AUTO_OCULTAR;
+        }
+        return s - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [estado]);
+
+  function reiniciarAutoOcultar() {
+    if (estado === "encontrado") setSegundosRestantes(SEGUNDOS_AUTO_OCULTAR);
+  }
 
   async function buscar(e: React.FormEvent) {
     e.preventDefault();
@@ -49,6 +76,7 @@ export default function ConsultaPage() {
       .order("created_at", { ascending: false });
 
     setMovimientosHoy((movs ?? []) as Transaccion[]);
+    setSegundosRestantes(SEGUNDOS_AUTO_OCULTAR);
     setEstado("encontrado");
   }
 
@@ -72,7 +100,10 @@ export default function ConsultaPage() {
         <form onSubmit={buscar} className="flex gap-2 mb-6">
           <input
             value={carnet}
-            onChange={(e) => setCarnet(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            onChange={(e) => {
+              setCarnet(e.target.value.replace(/\D/g, "").slice(0, 4));
+              reiniciarAutoOcultar();
+            }}
             placeholder="0000"
             inputMode="numeric"
             maxLength={4}
@@ -99,63 +130,81 @@ export default function ConsultaPage() {
         )}
 
         {estado === "encontrado" && persona && (
-          <div className="ticket p-5">
-            <div className="flex items-center gap-3 mb-5">
-              <Avatar fotoUrl={persona.foto_url} nombre={persona.nombre} size="lg" />
-              <div>
-                <h2 className="font-semibold text-ink leading-tight">{persona.nombre}</h2>
-                <p className="text-xs text-ink-soft">
-                  {persona.tipo}
-                  {persona.grado_cargo ? ` · ${persona.grado_cargo}` : ""}
-                </p>
-                <p className="font-ticket text-xs text-ink-soft mt-0.5">
-                  Carnet {persona.id}
-                </p>
-              </div>
+          <div
+            className="ticket overflow-hidden"
+            onScroll={reiniciarAutoOcultar}
+            onClick={reiniciarAutoOcultar}
+            onTouchStart={reiniciarAutoOcultar}
+          >
+            <div className="h-1 bg-line">
+              <div
+                className="h-full bg-accent transition-[width] duration-1000 ease-linear"
+                style={{ width: `${(segundosRestantes / SEGUNDOS_AUTO_OCULTAR) * 100}%` }}
+              />
             </div>
 
-            <CreditBar saldoUsd={persona.saldo_usd} limiteCreditoUsd={persona.limite_credito_usd} />
+            <div className="p-5">
+              <div className="flex items-center gap-3 mb-5">
+                <Avatar fotoUrl={persona.foto_url} nombre={persona.nombre} size="lg" />
+                <div>
+                  <h2 className="font-semibold text-ink leading-tight">{persona.nombre}</h2>
+                  <p className="text-xs text-ink-soft">
+                    {persona.tipo}
+                    {persona.grado_cargo ? ` · ${persona.grado_cargo}` : ""}
+                  </p>
+                  <p className="font-ticket text-xs text-ink-soft mt-0.5">
+                    Carnet {persona.id}
+                  </p>
+                </div>
+              </div>
 
-            {tasaBcv > 0 && (
-              <p className="text-xs text-ink-soft mt-3">
-                Equivale a {formatBs(Math.abs(persona.saldo_usd), tasaBcv)} · Tasa BCV:{" "}
-                {tasaBcv.toFixed(2)}
-              </p>
-            )}
+              <CreditBar saldoUsd={persona.saldo_usd} limiteCreditoUsd={persona.limite_credito_usd} />
 
-            <div className="ticket-dashed mt-5 pt-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium text-ink">Consumo de hoy</h3>
-                {consumoHoy > 0 && (
-                  <span className="font-ticket text-sm text-ink-soft">
-                    {formatUsd(-consumoHoy)}
-                  </span>
+              {tasaBcv > 0 && (
+                <p className="text-xs text-ink-soft mt-3">
+                  Equivale a {formatBs(Math.abs(persona.saldo_usd), tasaBcv)} · Tasa BCV:{" "}
+                  {tasaBcv.toFixed(2)}
+                </p>
+              )}
+
+              <div className="ticket-dashed mt-5 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-ink">Consumo de hoy</h3>
+                  {consumoHoy > 0 && (
+                    <span className="font-ticket text-sm text-ink-soft">
+                      {formatUsd(-consumoHoy)}
+                    </span>
+                  )}
+                </div>
+
+                {movimientosHoy.length === 0 ? (
+                  <p className="text-sm text-ink-soft">Sin movimientos hoy.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {movimientosHoy.map((m) => (
+                      <li key={m.id} className="flex items-center justify-between text-sm">
+                        <div>
+                          <p className="text-ink">
+                            {m.tipo === "venta" ? m.detalle || "Compra" : "Recarga"}
+                          </p>
+                          <p className="text-xs text-ink-soft">{formatTime(m.created_at)}</p>
+                        </div>
+                        <span
+                          className={`font-ticket ${
+                            m.monto_usd < 0 ? "text-debt" : "text-credit"
+                          }`}
+                        >
+                          {formatUsd(m.monto_usd)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
 
-              {movimientosHoy.length === 0 ? (
-                <p className="text-sm text-ink-soft">Sin movimientos hoy.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {movimientosHoy.map((m) => (
-                    <li key={m.id} className="flex items-center justify-between text-sm">
-                      <div>
-                        <p className="text-ink">
-                          {m.tipo === "venta" ? m.detalle || "Compra" : "Recarga"}
-                        </p>
-                        <p className="text-xs text-ink-soft">{formatTime(m.created_at)}</p>
-                      </div>
-                      <span
-                        className={`font-ticket ${
-                          m.monto_usd < 0 ? "text-debt" : "text-credit"
-                        }`}
-                      >
-                        {formatUsd(m.monto_usd)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <p className="text-center text-xs text-ink-soft mt-5">
+                Por privacidad, este resultado se oculta en {segundosRestantes}s
+              </p>
             </div>
           </div>
         )}
