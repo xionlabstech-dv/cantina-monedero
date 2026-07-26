@@ -9,7 +9,7 @@ import type { PersonaPublico, Transaccion } from "@/types/database";
 
 type Estado = "idle" | "buscando" | "no-encontrado" | "encontrado" | "error";
 
-const SEGUNDOS_AUTO_OCULTAR = 10;
+const SEGUNDOS_AUTO_OCULTAR = 20;
 
 export default function ConsultaPage() {
   const supabase = createClient();
