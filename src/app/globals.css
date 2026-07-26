@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #faf6ec;
+  --paper-raised: #ffffff;
+  --ink: #2b2621;
+  --ink-soft: #6b6055;
+  --line: #ddd4c4;
+  --accent: #c65d2e;
+  --accent-soft: #f2ddca;
+  --credit: #2f6f4e;
+  --credit-soft: #ddeee1;
+  --debt: #b3413a;
+  --debt-soft: #f6dedb;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-credit: var(--credit);
+  --color-credit-soft: var(--credit-soft);
+  --color-debt: var(--debt);
+  --color-debt-soft: var(--debt-soft);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-space-mono);
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.ticket {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(43, 38, 33, 0.06), 0 8px 24px -12px rgba(43, 38, 33, 0.15);
+}
+
+.ticket-dashed {
+  border-top: 2px dashed var(--line);
+}
+
+.font-ticket {
+  font-family: var(--font-mono);
+}
