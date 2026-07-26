@@ -25,7 +25,9 @@ Sistema de monedero prepago/crédito para la cantina de un colegio. Stack: Next.
 
 4. **Usuario administrador (cantinera)**
 
-   Crea el único usuario admin desde el Dashboard de Supabase → Authentication → Users → Add user (correo + contraseña). Es el que se usa para entrar en `/admin/login`.
+   La pantalla `/admin/login` solo pide "Usuario" y "Contraseña" — internamente arma el correo como `<usuario>@cantina.local` antes de llamar a Supabase Auth (el dominio no se muestra nunca en pantalla).
+
+   Crea el único usuario admin desde el Dashboard de Supabase → Authentication → Users → Add user, usando como correo `<usuario-elegido>@cantina.local` (ej. `cantinera@cantina.local`) y la contraseña deseada. En `/admin/login` se ingresa solo `cantinera`.
 
 5. **Instalar y correr**
 

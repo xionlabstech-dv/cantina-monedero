@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
-  const [email, setEmail] = useState("");
+  const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -17,12 +17,13 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
+    const email = `${usuario.trim()}@cantina.local`;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     setLoading(false);
 
     if (error) {
-      setError("Correo o contraseña incorrectos.");
+      setError("Usuario o contraseña incorrectos.");
       return;
     }
 
@@ -42,12 +43,13 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="ticket p-5 flex flex-col gap-3">
           <div>
-            <label className="text-sm text-ink-soft block mb-1">Correo</label>
+            <label className="text-sm text-ink-soft block mb-1">Usuario</label>
             <input
-              type="email"
+              type="text"
+              autoComplete="username"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={usuario}
+              onChange={(e) => setUsuario(e.target.value)}
               className="w-full py-2.5 px-3 rounded-lg border border-line bg-paper-raised focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
