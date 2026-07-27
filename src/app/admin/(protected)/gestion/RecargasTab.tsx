@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatUsd } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
@@ -10,13 +10,32 @@ const metodos: MetodoPago[] = ["Efectivo", "Transferencia", "Pago móvil"];
 
 export function RecargasTab() {
   const supabase = useMemo(() => createClient(), []);
+  const [tasaBcv, setTasaBcv] = useState(0);
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState<Persona[]>([]);
   const [persona, setPersona] = useState<Persona | null>(null);
-  const [monto, setMonto] = useState("");
+  const [montoBs, setMontoBs] = useState("");
   const [metodo, setMetodo] = useState<MetodoPago>("Efectivo");
+  const [referencia, setReferencia] = useState("");
   const [procesando, setProcesando] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
+
+  useEffect(() => {
+    async function cargarTasa() {
+      const { data } = await supabase
+        .from("configuracion")
+        .select("tasa_bcv")
+        .eq("id", 1)
+        .maybeSingle();
+      setTasaBcv(data?.tasa_bcv ?? 0);
+    }
+    cargarTasa();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const requiereReferencia = metodo !== "Efectivo";
+  const montoUsdEquivalente =
+    tasaBcv > 0 && montoBs.trim() ? parseFloat(montoBs) / tasaBcv : null;
 
   async function buscar(e: React.FormEvent) {
     e.preventDefault();
@@ -42,28 +61,55 @@ export function RecargasTab() {
   async function recargar(e: React.FormEvent) {
     e.preventDefault();
     if (!persona) return;
-    const valor = parseFloat(monto);
-    if (isNaN(valor) || valor <= 0) {
+
+    const valorBs = parseFloat(montoBs);
+    if (isNaN(valorBs) || valorBs <= 0) {
       setMensaje({ tipo: "error", texto: "Ingresa un monto válido." });
       return;
     }
+    if (!tasaBcv || tasaBcv <= 0) {
+      setMensaje({ tipo: "error", texto: "No se pudo cargar la tasa BCV. Intenta de nuevo." });
+      return;
+    }
+    if (requiereReferencia && !referencia.trim()) {
+      setMensaje({ tipo: "error", texto: "El número de referencia es obligatorio para Transferencia o Pago móvil." });
+      return;
+    }
+
+    const valorUsd = Math.round((valorBs / tasaBcv) * 100) / 100;
 
     setProcesando(true);
     const { data, error } = await supabase.rpc("fn_registrar_recarga", {
       p_persona_id: persona.id,
-      p_monto_usd: valor,
+      p_monto_usd: valorUsd,
       p_metodo: metodo,
     });
-    setProcesando(false);
 
     if (error) {
+      setProcesando(false);
       setMensaje({ tipo: "error", texto: error.message });
       return;
     }
 
     const resultado = Array.isArray(data) ? data[0] : data;
+
+    if (requiereReferencia) {
+      const { error: refError } = await supabase
+        .from("transacciones")
+        .update({ referencia: referencia.trim() })
+        .eq("id", resultado.nueva_transaccion_id);
+
+      if (refError) {
+        setProcesando(false);
+        setMensaje({ tipo: "error", texto: `Recarga registrada, pero no se pudo guardar la referencia: ${refError.message}` });
+        return;
+      }
+    }
+
+    setProcesando(false);
     setPersona({ ...persona, saldo_usd: resultado.nuevo_saldo });
-    setMonto("");
+    setMontoBs("");
+    setReferencia("");
     setMensaje({ tipo: "ok", texto: `Recarga registrada. Nuevo saldo: ${formatUsd(resultado.nuevo_saldo)}` });
   }
 
@@ -112,15 +158,20 @@ export function RecargasTab() {
 
           <form onSubmit={recargar} className="flex flex-col gap-3">
             <div>
-              <label className="text-xs text-ink-soft block mb-1">Monto a recargar (USD)</label>
+              <label className="text-xs text-ink-soft block mb-1">Monto a recargar (Bs)</label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                value={monto}
-                onChange={(e) => setMonto(e.target.value)}
-                className="w-full py-2.5 px-3 rounded-lg border border-line bg-paper text-sm"
+                value={montoBs}
+                onChange={(e) => setMontoBs(e.target.value)}
+                className="w-full py-2.5 px-3 rounded-lg border border-line bg-paper text-sm font-ticket"
               />
+              {montoUsdEquivalente !== null && !isNaN(montoUsdEquivalente) && (
+                <p className="text-xs text-ink-soft mt-1">
+                  Equivale a {formatUsd(montoUsdEquivalente)}
+                </p>
+              )}
             </div>
             <div>
               <label className="text-xs text-ink-soft block mb-1">Método de pago</label>
@@ -136,6 +187,16 @@ export function RecargasTab() {
                 ))}
               </select>
             </div>
+            {requiereReferencia && (
+              <div>
+                <label className="text-xs text-ink-soft block mb-1">Número de referencia</label>
+                <input
+                  value={referencia}
+                  onChange={(e) => setReferencia(e.target.value)}
+                  className="w-full py-2.5 px-3 rounded-lg border border-line bg-paper text-sm font-ticket"
+                />
+              </div>
+            )}
             <button
               type="submit"
               disabled={procesando}

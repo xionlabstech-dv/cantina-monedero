@@ -43,6 +43,7 @@ export interface Transaccion {
   monto_usd: number;
   detalle: string | null;
   metodo_pago: MetodoPago | string | null;
+  referencia: string | null;
   anulada: boolean;
   created_at: string;
 }

@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Space_Mono } from "next/font/google";
+import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 import "./globals.css";
 
 const inter = Inter({
@@ -16,6 +17,17 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "Cantina | Monedero Escolar",
   description: "Sistema de monedero prepago/crédito para la cantina escolar",
+  appleWebApp: {
+    capable: true,
+    title: "Cantina",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#D6482F",
 };
 
 export default function RootLayout({
@@ -29,6 +41,7 @@ export default function RootLayout({
       className={`${inter.variable} ${spaceMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-paper text-ink">
+        <RegisterServiceWorker />
         {children}
       </body>
     </html>

@@ -12,6 +12,7 @@ interface MovimientoRow {
   monto_usd: number;
   detalle: string | null;
   metodo_pago: string | null;
+  referencia: string | null;
   anulada: boolean;
   created_at: string;
   personas: { nombre: string } | null;
@@ -69,6 +70,7 @@ export default function HistorialPage() {
       Carnet: m.persona_id,
       Tipo: m.tipo === "venta" ? "Venta" : "Recarga",
       Detalle: m.detalle ?? (m.tipo === "recarga" ? m.metodo_pago ?? "" : ""),
+      Referencia: m.referencia ?? "",
       "Monto USD": m.monto_usd,
       Anulada: m.anulada ? "Sí" : "No",
     }));
@@ -80,6 +82,7 @@ export default function HistorialPage() {
       { wch: 8 },
       { wch: 10 },
       { wch: 30 },
+      { wch: 16 },
       { wch: 12 },
       { wch: 10 },
     ];
@@ -134,6 +137,7 @@ export default function HistorialPage() {
                 <p className="text-xs text-ink-soft">
                   {m.tipo === "venta" ? m.detalle || "Venta" : `Recarga · ${m.metodo_pago ?? ""}`} ·{" "}
                   {formatDateTime(m.created_at)}
+                  {m.referencia && ` · Ref: ${m.referencia}`}
                 </p>
               </div>
               <span

@@ -44,6 +44,7 @@ create table transacciones (
   monto_usd     numeric(10,2) not null, -- negativo para venta, positivo para recarga
   detalle       text,
   metodo_pago   text, -- solo aplica a recargas: Efectivo, Transferencia, Pago móvil
+  referencia    text, -- número de referencia, obligatorio en recargas por Transferencia/Pago móvil
   anulada       boolean not null default false,
   created_at    timestamptz not null default now()
 );
