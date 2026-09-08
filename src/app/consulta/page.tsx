@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatBs, formatTime, formatUsd } from "@/lib/format";
 import { CreditBar } from "@/components/CreditBar";
@@ -93,6 +94,13 @@ export default function ConsultaPage() {
   return (
     <main className="flex-1 flex flex-col items-center px-4 py-10 sm:py-16">
       <div className="w-full max-w-sm">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1 text-sm text-ink-soft hover:text-ink mb-6"
+        >
+          ← Volver al inicio
+        </Link>
+
         <header className="text-center mb-8">
           <p className="font-ticket text-xs tracking-widest text-accent uppercase mb-1">
             Cantina Escolar
