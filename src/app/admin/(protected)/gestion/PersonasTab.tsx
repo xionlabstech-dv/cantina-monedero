@@ -10,6 +10,21 @@ import type { Persona, TipoPersona } from "@/types/database";
 
 const tipos: TipoPersona[] = ["Estudiante", "Docente", "Personal"];
 
+function mensajeErrorGuardar(err: unknown): string {
+  const code = err && typeof err === "object" && "code" in err ? String(err.code) : null;
+
+  if (code === "23505") {
+    return "Ya existe una persona con ese carnet. Cierra el formulario y vuelve a intentar para que se asigne uno nuevo.";
+  }
+  if (code === "23514") {
+    return "Alguno de los datos ingresados no es válido (revisa el tipo, el límite de crédito o el carnet).";
+  }
+  if (err instanceof Error && err.message) {
+    return err.message;
+  }
+  return "No se pudo guardar. Intenta de nuevo en un momento.";
+}
+
 const formVacio = {
   id: "",
   nombre: "",
@@ -34,6 +49,7 @@ export function PersonasTab() {
   const [fotoUrlActual, setFotoUrlActual] = useState<string | null>(null);
   const [comprimiendoFoto, setComprimiendoFoto] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [cargandoCarnet, setCargandoCarnet] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
   const fotoInputRef = useRef<HTMLInputElement>(null);
@@ -59,13 +75,44 @@ export function PersonasTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function nuevaPersona() {
+  async function calcularSiguienteCarnet(): Promise<string> {
+    const { data, error } = await supabase
+      .from("personas")
+      .select("id")
+      .order("id", { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+
+    const ultimo = data?.[0]?.id;
+    const siguiente = ultimo ? parseInt(ultimo, 10) + 1 : 1;
+
+    if (siguiente > 9999) {
+      throw new Error("Ya se alcanzó el máximo de carnets de 4 dígitos (9999).");
+    }
+
+    return String(siguiente).padStart(4, "0");
+  }
+
+  async function nuevaPersona() {
     setEditandoId(null);
-    setForm(formVacio);
+    setForm({ ...formVacio, id: "" });
     setFoto(null);
     setFotoUrlActual(null);
     setError(null);
     setMostrarForm(true);
+
+    setCargandoCarnet(true);
+    try {
+      const siguiente = await calcularSiguienteCarnet();
+      setForm((prev) => ({ ...prev, id: siguiente }));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No se pudo calcular el siguiente carnet."
+      );
+    } finally {
+      setCargandoCarnet(false);
+    }
   }
 
   function editarPersona(p: Persona) {
@@ -161,7 +208,7 @@ export function PersonasTab() {
       setMostrarForm(false);
       cargar();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ocurrió un error al guardar.");
+      setError(mensajeErrorGuardar(err));
     } finally {
       setGuardando(false);
     }
@@ -226,12 +273,14 @@ export function PersonasTab() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-ink-soft block mb-1">Carnet (4 dígitos)</label>
+              <label className="text-xs text-ink-soft block mb-1">
+                Carnet {editandoId ? "" : "(asignado automáticamente)"}
+              </label>
               <input
-                value={form.id}
-                disabled={!!editandoId}
-                onChange={(e) => setForm({ ...form, id: e.target.value.replace(/\D/g, "").slice(0, 4) })}
-                className="w-full py-2 px-2.5 rounded-lg border border-line bg-paper text-sm font-ticket disabled:opacity-60"
+                value={cargandoCarnet ? "Calculando..." : form.id}
+                disabled
+                readOnly
+                className="w-full py-2 px-2.5 rounded-lg border border-line bg-line/40 text-sm font-ticket text-ink-soft cursor-not-allowed"
               />
             </div>
             <div>
@@ -320,7 +369,7 @@ export function PersonasTab() {
           <div className="flex gap-2 mt-1">
             <button
               type="submit"
-              disabled={guardando || comprimiendoFoto}
+              disabled={guardando || comprimiendoFoto || cargandoCarnet || !form.id}
               className="flex-1 py-2.5 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-60"
             >
               {guardando ? "Guardando..." : "Guardar"}

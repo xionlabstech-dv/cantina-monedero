@@ -35,6 +35,13 @@ self.addEventListener("fetch", (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        // caches.match() resuelve a undefined si no hay nada cacheado, y
+        // respondWith(undefined) revienta con "Failed to convert value to
+        // 'Response'". Response.error() es un valor válido que produce el
+        // mismo resultado visible (fallo de red) sin ese error de más.
+        return cached ?? Response.error();
+      })
   );
 });
