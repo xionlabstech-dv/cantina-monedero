@@ -113,7 +113,7 @@ export default function HistorialPage() {
       <div className="grid grid-cols-2 gap-3">
         <div className="ticket p-4">
           <p className="text-xs text-ink-soft mb-1">Total ventas</p>
-          <p className="font-ticket text-xl font-bold text-debt">{formatUsd(-totalVentas)}</p>
+          <p className="font-ticket text-xl font-bold text-debt">{formatUsd(totalVentas)}</p>
         </div>
         <div className="ticket p-4">
           <p className="text-xs text-ink-soft mb-1">Total recargas</p>

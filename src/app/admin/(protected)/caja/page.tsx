@@ -6,6 +6,7 @@ import { formatBs, formatUsd } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { CreditBar } from "@/components/CreditBar";
 import { Avatar } from "@/components/Avatar";
+import { PhotoLightbox } from "@/components/PhotoLightbox";
 import type { Persona, Producto } from "@/types/database";
 
 interface CartItem {
@@ -30,6 +31,7 @@ export default function CajaPage() {
     null
   );
   const [ultimaTxId, setUltimaTxId] = useState<string | null>(null);
+  const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
 
   useEffect(() => {
     async function cargar() {
@@ -163,6 +165,7 @@ export default function CajaPage() {
       : null;
 
   return (
+    <>
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="flex flex-col gap-6">
         <form onSubmit={buscar} className="flex gap-2">
@@ -232,7 +235,12 @@ export default function CajaPage() {
         {persona ? (
           <div className="ticket p-4">
             <div className="flex items-center gap-3 mb-4">
-              <Avatar fotoUrl={persona.foto_url} nombre={persona.nombre} size="md" />
+              <Avatar
+                fotoUrl={persona.foto_url}
+                nombre={persona.nombre}
+                size="md"
+                onClick={persona.foto_url ? () => setFotoAmpliada(persona.foto_url) : undefined}
+              />
               <div>
                 <p className="font-medium text-ink leading-tight">{persona.nombre}</p>
                 <p className="text-xs text-ink-soft">
@@ -327,5 +335,14 @@ export default function CajaPage() {
         )}
       </aside>
     </div>
+
+    {fotoAmpliada && (
+      <PhotoLightbox
+        src={fotoAmpliada}
+        alt={persona?.nombre ?? "Foto"}
+        onClose={() => setFotoAmpliada(null)}
+      />
+    )}
+    </>
   );
 }
