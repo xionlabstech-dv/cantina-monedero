@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatBs, formatTime, formatUsd } from "@/lib/format";
 import { CreditBar } from "@/components/CreditBar";
@@ -12,7 +12,12 @@ type Estado = "idle" | "buscando" | "no-encontrado" | "encontrado" | "error";
 const SEGUNDOS_AUTO_OCULTAR = 20;
 
 export default function ConsultaPage() {
-  const supabase = createClient();
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  function getSupabase() {
+    if (!supabaseRef.current) supabaseRef.current = createClient();
+    return supabaseRef.current;
+  }
+
   const [carnet, setCarnet] = useState("");
   const [estado, setEstado] = useState<Estado>("idle");
   const [persona, setPersona] = useState<PersonaPublico | null>(null);
@@ -54,6 +59,7 @@ export default function ConsultaPage() {
 
     setEstado("buscando");
 
+    const supabase = getSupabase();
     const [{ data: personaData, error: personaError }, { data: configData }] =
       await Promise.all([
         supabase.from("personas_publico").select("*").eq("id", id).maybeSingle(),
