@@ -5,8 +5,22 @@ import { createBrowserClient } from "@supabase/ssr";
 // respuesta anterior en vez de ir a la red — por ejemplo, al volver a buscar
 // el mismo carnet poco después de registrarle una recarga o venta. Forzamos
 // no-store en cada request para que siempre se lea el estado más reciente.
+//
+// Además, reintentamos una vez las lecturas (GET) que fallan por un corte de
+// conexión (fetch() rechaza con TypeError, no con un status HTTP). Esto es
+// común justo después de un despliegue: el service worker (skipWaiting +
+// clients.claim) puede tomar control de una pestaña ya abierta a mitad de
+// una petición y cortar la conexión en curso. No reintentamos escrituras
+// (insert/update/rpc): si el corte ocurrió después de que el servidor ya
+// procesó la operación, reintentar podría duplicarla (ej. una venta).
 function fetchSinCache(input: RequestInfo | URL, init?: RequestInit) {
-  return fetch(input, { ...init, cache: "no-store" });
+  const metodo = (init?.method ?? "GET").toUpperCase();
+  const esLectura = metodo === "GET" || metodo === "HEAD";
+
+  return fetch(input, { ...init, cache: "no-store" }).catch((err) => {
+    if (!esLectura || !(err instanceof TypeError)) throw err;
+    return fetch(input, { ...init, cache: "no-store" });
+  });
 }
 
 export function createClient() {
