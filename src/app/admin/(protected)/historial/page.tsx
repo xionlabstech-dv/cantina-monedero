@@ -174,15 +174,15 @@ export default function HistorialPage() {
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-xl font-bold text-ink">Historial</h1>
           <p className="text-sm text-ink-soft">{rangoLabels[rangoTipo]} · movimientos filtrados.</p>
         </div>
         <button
           onClick={exportarXlsx}
           disabled={movimientosFiltrados.length === 0}
-          className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50"
+          className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50 shrink-0 whitespace-nowrap"
         >
           Exportar .xlsx
         </button>
@@ -265,32 +265,41 @@ export default function HistorialPage() {
       ) : (
         <ul className="ticket divide-y divide-line overflow-hidden">
           {movimientosFiltrados.map((m) => (
-            <li key={m.id} className={`p-3 flex items-center gap-3 ${m.anulada ? "opacity-40" : ""}`}>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-ink truncate">
-                  {m.personas?.nombre ?? m.persona_id}{" "}
-                  {m.anulada && <span className="text-xs text-debt">(anulada)</span>}
-                </p>
-                <p className="text-xs text-ink-soft">
-                  {m.tipo === "venta" ? m.detalle || "Venta" : `Recarga · ${m.metodo_pago ?? ""}`} ·{" "}
-                  {formatDateTime(m.created_at)}
-                  {m.referencia && ` · Ref: ${m.referencia}`}
-                </p>
-              </div>
-              <span
-                className={`font-ticket text-sm shrink-0 ${
-                  m.monto_usd < 0 ? "text-debt" : "text-credit"
-                }`}
-              >
-                {formatUsd(m.monto_usd)}
-              </span>
-              {!m.anulada && (
-                <button
-                  onClick={() => deshacer(m.id)}
-                  className="text-xs text-debt shrink-0"
+            <li
+              key={m.id}
+              className={`p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 ${
+                m.anulada ? "opacity-40" : ""
+              }`}
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-ink truncate">
+                    {m.personas?.nombre ?? m.persona_id}{" "}
+                    {m.anulada && <span className="text-xs text-debt">(anulada)</span>}
+                  </p>
+                  <p className="text-xs text-ink-soft">
+                    {m.tipo === "venta" ? m.detalle || "Venta" : `Recarga · ${m.metodo_pago ?? ""}`} ·{" "}
+                    {formatDateTime(m.created_at)}
+                    {m.referencia && ` · Ref: ${m.referencia}`}
+                  </p>
+                </div>
+                <span
+                  className={`font-ticket text-base font-bold shrink-0 ${
+                    m.monto_usd < 0 ? "text-debt" : "text-credit"
+                  }`}
                 >
-                  Deshacer
-                </button>
+                  {formatUsd(m.monto_usd)}
+                </span>
+              </div>
+              {!m.anulada && (
+                <div className="flex items-center gap-2 sm:shrink-0">
+                  <button
+                    onClick={() => deshacer(m.id)}
+                    className="px-3 py-1.5 rounded-lg border border-line text-xs font-medium text-ink-soft hover:bg-paper shrink-0"
+                  >
+                    Deshacer
+                  </button>
+                </div>
               )}
             </li>
           ))}
