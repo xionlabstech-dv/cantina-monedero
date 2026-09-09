@@ -7,6 +7,7 @@ import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { compressImage, formatFileSize } from "@/lib/image";
 import { Avatar } from "@/components/Avatar";
 import { PhotoLightbox } from "@/components/PhotoLightbox";
+import { PhotoCropper } from "@/components/PhotoCropper";
 import type { Persona, TipoPersona } from "@/types/database";
 
 const tipos: TipoPersona[] = ["Estudiante", "Docente", "Personal"];
@@ -38,6 +39,7 @@ export function PersonasTab() {
   const [error, setError] = useState<string | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
+  const [archivoParaRecortar, setArchivoParaRecortar] = useState<File | null>(null);
   const fotoInputRef = useRef<HTMLInputElement>(null);
 
   const fotoPreviewUrl = useMemo(() => (foto ? URL.createObjectURL(foto) : null), [foto]);
@@ -89,15 +91,19 @@ export function PersonasTab() {
     setMostrarForm(true);
   }
 
-  async function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0];
     e.target.value = "";
     if (!selected) return;
-
     setError(null);
+    setArchivoParaRecortar(selected);
+  }
+
+  async function confirmarRecorte(recortado: File) {
+    setArchivoParaRecortar(null);
     setComprimiendoFoto(true);
     try {
-      const comprimida = await compressImage(selected);
+      const comprimida = await compressImage(recortado);
       setFoto(comprimida);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo procesar la imagen.");
@@ -207,7 +213,6 @@ export function PersonasTab() {
                 ref={fotoInputRef}
                 type="file"
                 accept="image/*"
-                capture="user"
                 onChange={handleFotoChange}
                 className="hidden"
               />
@@ -352,39 +357,58 @@ export function PersonasTab() {
               : null;
 
             return (
-              <li key={p.id} className={`p-3 flex items-center gap-3 ${!p.activo ? "opacity-50" : ""}`}>
-                <Avatar
-                  fotoUrl={p.foto_url}
-                  nombre={p.nombre}
-                  size="sm"
-                  onClick={p.foto_url ? () => setFotoAmpliada(p.foto_url) : undefined}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink truncate">{p.nombre}</p>
-                  <p className="text-xs text-ink-soft">
-                    Carnet {p.id} · {p.tipo}
-                    {p.grado_cargo ? ` · ${p.grado_cargo}` : ""}
-                  </p>
-                </div>
-                <span className="font-ticket text-sm text-ink-soft shrink-0">
-                  {formatUsd(p.saldo_usd)}
-                </span>
-                {whatsappLink && (
-                  <a
-                    href={whatsappLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-credit shrink-0"
+              <li
+                key={p.id}
+                className={`p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 ${
+                  !p.activo ? "opacity-50" : ""
+                }`}
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <Avatar
+                    fotoUrl={p.foto_url}
+                    nombre={p.nombre}
+                    size="sm"
+                    onClick={p.foto_url ? () => setFotoAmpliada(p.foto_url) : undefined}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-ink truncate">{p.nombre}</p>
+                    <p className="text-xs text-ink-soft">
+                      Carnet {p.id} · {p.tipo}
+                      {p.grado_cargo ? ` · ${p.grado_cargo}` : ""}
+                    </p>
+                  </div>
+                  <span
+                    className={`font-ticket text-base font-bold shrink-0 ${
+                      p.saldo_usd < 0 ? "text-debt" : "text-credit"
+                    }`}
                   >
-                    WhatsApp
-                  </a>
-                )}
-                <button onClick={() => editarPersona(p)} className="text-xs text-ink-soft shrink-0">
-                  Editar
-                </button>
-                <button onClick={() => toggleActivo(p)} className="text-xs text-ink-soft shrink-0">
-                  {p.activo ? "Desactivar" : "Activar"}
-                </button>
+                    {formatUsd(p.saldo_usd)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap sm:shrink-0">
+                  {whatsappLink && (
+                    <a
+                      href={whatsappLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 rounded-lg bg-credit-soft text-credit text-xs font-medium hover:opacity-80 shrink-0"
+                    >
+                      WhatsApp
+                    </a>
+                  )}
+                  <button
+                    onClick={() => editarPersona(p)}
+                    className="px-3 py-1.5 rounded-lg bg-paper-raised border border-line text-xs font-medium text-ink hover:bg-paper shrink-0"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => toggleActivo(p)}
+                    className="px-3 py-1.5 rounded-lg border border-line text-xs font-medium text-ink-soft hover:bg-paper shrink-0"
+                  >
+                    {p.activo ? "Desactivar" : "Activar"}
+                  </button>
+                </div>
               </li>
             );
           })}
@@ -400,6 +424,14 @@ export function PersonasTab() {
         src={fotoAmpliada}
         alt="Foto de persona"
         onClose={() => setFotoAmpliada(null)}
+      />
+    )}
+
+    {archivoParaRecortar && (
+      <PhotoCropper
+        file={archivoParaRecortar}
+        onConfirm={confirmarRecorte}
+        onCancel={() => setArchivoParaRecortar(null)}
       />
     )}
     </>
