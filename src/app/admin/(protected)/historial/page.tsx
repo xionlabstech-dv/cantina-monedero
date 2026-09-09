@@ -137,6 +137,27 @@ export default function HistorialPage() {
     .filter((m) => m.tipo === "recarga")
     .reduce((acc, m) => acc + m.monto_usd, 0);
 
+  // fn_procesar_venta arma detalle como "Producto xCantidad, Producto2 xCantidad2".
+  // Empates (misma cantidad total) se resuelven al primero encontrado recorriendo
+  // los movimientos más recientes primero, ya que no viene ordenado por cantidad.
+  const conteoProductos = new Map<string, number>();
+  for (const m of activos) {
+    if (m.tipo !== "venta" || !m.detalle) continue;
+    for (const parte of m.detalle.split(",")) {
+      const coincidencia = parte.trim().match(/^(.+?)\s+x(\d+)$/);
+      if (!coincidencia) continue;
+      const nombreProducto = coincidencia[1].trim();
+      const cantidad = parseInt(coincidencia[2], 10);
+      conteoProductos.set(nombreProducto, (conteoProductos.get(nombreProducto) ?? 0) + cantidad);
+    }
+  }
+  let productoMasVendido: { nombre: string; cantidad: number } | null = null;
+  for (const [nombre, cantidad] of conteoProductos) {
+    if (!productoMasVendido || cantidad > productoMasVendido.cantidad) {
+      productoMasVendido = { nombre, cantidad };
+    }
+  }
+
   const movimientosFiltrados = movimientosEnRango.filter(
     (m) => filtroTipo === "todo" || m.tipo === filtroTipo
   );
@@ -256,6 +277,22 @@ export default function HistorialPage() {
           <p className="text-xs text-ink-soft mb-1">Total recargas</p>
           <p className="font-ticket text-xl font-bold text-credit">{formatUsd(totalRecargas)}</p>
         </div>
+      </div>
+
+      <div className={`ticket p-3 ${filtroTipo === "recarga" ? "opacity-40" : ""}`}>
+        <p className="text-xs text-ink-soft mb-1">Más vendido</p>
+        <p className="text-sm font-medium text-ink truncate">
+          {filtroTipo === "recarga" ? (
+            "No aplica"
+          ) : productoMasVendido ? (
+            <>
+              {productoMasVendido.nombre}{" "}
+              <span className="text-ink-soft font-normal">({productoMasVendido.cantidad})</span>
+            </>
+          ) : (
+            "Sin ventas en este período"
+          )}
+        </p>
       </div>
 
       {mensaje && <p className="text-sm text-debt">{mensaje}</p>}
