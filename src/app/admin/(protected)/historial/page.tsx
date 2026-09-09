@@ -288,7 +288,7 @@ export default function HistorialPage() {
                     m.monto_usd < 0 ? "text-debt" : "text-credit"
                   }`}
                 >
-                  {formatUsd(m.monto_usd)}
+                  {formatUsd(Math.abs(m.monto_usd))}
                 </span>
               </div>
               {!m.anulada && (
