@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+type EstadoSesion = "verificando" | "sin-sesion" | "con-sesion";
+
 export default function LoginPage() {
   const router = useRouter();
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -12,19 +14,31 @@ export default function LoginPage() {
     return supabaseRef.current;
   }
 
+  const [estadoSesion, setEstadoSesion] = useState<EstadoSesion>("verificando");
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Única fuente de verdad para saber si ya hay sesión: igual que en el
+  // layout de /admin/(protected), nos apoyamos solo en onAuthStateChange
+  // (su evento inicial cubre lo mismo que getSession(), sin una promesa
+  // paralela que pueda quedar sin resolver ni compitiendo por la decisión).
   useEffect(() => {
-    getSupabase()
-      .auth.getSession()
-      .then(({ data: { session } }) => {
-        if (session) router.replace("/admin/caja");
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const supabase = getSupabase();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setEstadoSesion(session ? "con-sesion" : "sin-sesion");
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (estadoSesion === "con-sesion") router.replace("/admin/caja");
+  }, [estadoSesion, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,6 +57,14 @@ export default function LoginPage() {
 
     router.push("/admin/caja");
     router.refresh();
+  }
+
+  if (estadoSesion === "verificando" || estadoSesion === "con-sesion") {
+    return (
+      <main className="flex-1 flex items-center justify-center px-4">
+        <p className="text-sm text-ink-soft">Verificando sesión...</p>
+      </main>
+    );
   }
 
   return (

@@ -6,6 +6,8 @@ import { formatUsd } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { compressImage, formatFileSize } from "@/lib/image";
 import { Avatar } from "@/components/Avatar";
+import { PhotoLightbox } from "@/components/PhotoLightbox";
+import { PhotoCropper } from "@/components/PhotoCropper";
 import type { Persona, TipoPersona } from "@/types/database";
 
 const tipos: TipoPersona[] = ["Estudiante", "Docente", "Personal"];
@@ -36,6 +38,8 @@ export function PersonasTab() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
+  const [archivoParaRecortar, setArchivoParaRecortar] = useState<File | null>(null);
   const fotoInputRef = useRef<HTMLInputElement>(null);
 
   const fotoPreviewUrl = useMemo(() => (foto ? URL.createObjectURL(foto) : null), [foto]);
@@ -87,15 +91,19 @@ export function PersonasTab() {
     setMostrarForm(true);
   }
 
-  async function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0];
     e.target.value = "";
     if (!selected) return;
-
     setError(null);
+    setArchivoParaRecortar(selected);
+  }
+
+  async function confirmarRecorte(recortado: File) {
+    setArchivoParaRecortar(null);
     setComprimiendoFoto(true);
     try {
-      const comprimida = await compressImage(selected);
+      const comprimida = await compressImage(recortado);
       setFoto(comprimida);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo procesar la imagen.");
@@ -178,23 +186,9 @@ export function PersonasTab() {
   );
 
   return (
+    <>
     <div className="flex flex-col gap-4">
-      <div className="flex gap-2">
-        <input
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar por carnet o nombre..."
-          className="flex-1 py-2.5 px-3 rounded-lg border border-line bg-paper-raised text-sm"
-        />
-        <button
-          onClick={nuevaPersona}
-          className="px-4 rounded-lg bg-accent text-white text-sm font-medium"
-        >
-          + Nueva persona
-        </button>
-      </div>
-
-      {mostrarForm && (
+      {mostrarForm ? (
         <form onSubmit={guardar} className="ticket p-4 flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <Avatar fotoUrl={fotoPreviewUrl ?? fotoUrlActual} nombre={form.nombre || "?"} size="lg" />
@@ -204,7 +198,6 @@ export function PersonasTab() {
                 ref={fotoInputRef}
                 type="file"
                 accept="image/*"
-                capture="user"
                 onChange={handleFotoChange}
                 className="hidden"
               />
@@ -334,57 +327,115 @@ export function PersonasTab() {
             </button>
           </div>
         </form>
-      )}
-
-      {cargando ? (
-        <p className="text-sm text-ink-soft">Cargando...</p>
       ) : (
-        <ul className="ticket divide-y divide-line overflow-hidden">
-          {filtradas.map((p) => {
-            const whatsappLink = p.representante_telefono
-              ? buildWhatsAppLink(
-                  p.representante_telefono,
-                  `Hola, le informamos que el saldo de ${p.nombre} en la cantina está en ${formatUsd(p.saldo_usd)}.`
-                )
-              : null;
+        <>
+          <div className="flex gap-2">
+            <input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por carnet o nombre..."
+              className="flex-1 py-2.5 px-3 rounded-lg border border-line bg-paper-raised text-sm"
+            />
+            <button
+              onClick={nuevaPersona}
+              className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium whitespace-nowrap"
+            >
+              Nueva persona
+            </button>
+          </div>
 
-            return (
-              <li key={p.id} className={`p-3 flex items-center gap-3 ${!p.activo ? "opacity-50" : ""}`}>
-                <Avatar fotoUrl={p.foto_url} nombre={p.nombre} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink truncate">{p.nombre}</p>
-                  <p className="text-xs text-ink-soft">
-                    Carnet {p.id} · {p.tipo}
-                    {p.grado_cargo ? ` · ${p.grado_cargo}` : ""}
-                  </p>
-                </div>
-                <span className="font-ticket text-sm text-ink-soft shrink-0">
-                  {formatUsd(p.saldo_usd)}
-                </span>
-                {whatsappLink && (
-                  <a
-                    href={whatsappLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-credit shrink-0"
+          {cargando ? (
+            <p className="text-sm text-ink-soft">Cargando...</p>
+          ) : (
+            <ul className="ticket divide-y divide-line overflow-hidden">
+              {filtradas.map((p) => {
+                const whatsappLink = p.representante_telefono
+                  ? buildWhatsAppLink(
+                      p.representante_telefono,
+                      `Hola, le informamos que el saldo de ${p.nombre} en la cantina está en ${formatUsd(p.saldo_usd)}.`
+                    )
+                  : null;
+
+                return (
+                  <li
+                    key={p.id}
+                    className={`p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 ${
+                      !p.activo ? "opacity-50" : ""
+                    }`}
                   >
-                    WhatsApp
-                  </a>
-                )}
-                <button onClick={() => editarPersona(p)} className="text-xs text-ink-soft shrink-0">
-                  Editar
-                </button>
-                <button onClick={() => toggleActivo(p)} className="text-xs text-ink-soft shrink-0">
-                  {p.activo ? "Desactivar" : "Activar"}
-                </button>
-              </li>
-            );
-          })}
-          {filtradas.length === 0 && (
-            <p className="p-4 text-sm text-ink-soft">No hay personas registradas.</p>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <Avatar
+                        fotoUrl={p.foto_url}
+                        nombre={p.nombre}
+                        size="sm"
+                        onClick={p.foto_url ? () => setFotoAmpliada(p.foto_url) : undefined}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-ink truncate">{p.nombre}</p>
+                        <p className="text-xs text-ink-soft">
+                          Carnet {p.id} · {p.tipo}
+                          {p.grado_cargo ? ` · ${p.grado_cargo}` : ""}
+                        </p>
+                      </div>
+                      <span
+                        className={`font-ticket text-base font-bold shrink-0 ${
+                          p.saldo_usd < 0 ? "text-debt" : "text-credit"
+                        }`}
+                      >
+                        {formatUsd(p.saldo_usd)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap sm:shrink-0">
+                      {whatsappLink && (
+                        <a
+                          href={whatsappLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-lg bg-credit-soft text-credit text-xs font-medium hover:opacity-80 shrink-0"
+                        >
+                          WhatsApp
+                        </a>
+                      )}
+                      <button
+                        onClick={() => editarPersona(p)}
+                        className="px-3 py-1.5 rounded-lg bg-paper-raised border border-line text-xs font-medium text-ink hover:bg-paper shrink-0"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => toggleActivo(p)}
+                        className="px-3 py-1.5 rounded-lg border border-line text-xs font-medium text-ink-soft hover:bg-paper shrink-0"
+                      >
+                        {p.activo ? "Desactivar" : "Activar"}
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+              {filtradas.length === 0 && (
+                <p className="p-4 text-sm text-ink-soft">No hay personas registradas.</p>
+              )}
+            </ul>
           )}
-        </ul>
+        </>
       )}
     </div>
+
+    {fotoAmpliada && (
+      <PhotoLightbox
+        src={fotoAmpliada}
+        alt="Foto de persona"
+        onClose={() => setFotoAmpliada(null)}
+      />
+    )}
+
+    {archivoParaRecortar && (
+      <PhotoCropper
+        file={archivoParaRecortar}
+        onConfirm={confirmarRecorte}
+        onCancel={() => setArchivoParaRecortar(null)}
+      />
+    )}
+    </>
   );
 }

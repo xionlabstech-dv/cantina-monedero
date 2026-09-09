@@ -17,9 +17,11 @@ export function AdminNav() {
   const supabase = createClient();
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    // Navegar primero a "/" desmonta el layout protegido (y su listener de
+    // sesión) antes de que signOut() notifique SIGNED_OUT — así evitamos que
+    // ese listener compita y mande a /admin/login en vez de la portada.
     router.push("/");
-    router.refresh();
+    await supabase.auth.signOut();
   }
 
   return (

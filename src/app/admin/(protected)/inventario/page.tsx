@@ -4,11 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Producto } from "@/types/database";
 
+function mensajeError(err: unknown): string {
+  if (err instanceof TypeError) {
+    return "Se perdió la conexión. Intenta de nuevo.";
+  }
+  if (err instanceof Error && err.message) {
+    return err.message;
+  }
+  return "Ocurrió un error. Intenta de nuevo.";
+}
+
 export default function InventarioPage() {
   const supabase = useMemo(() => createClient(), []);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [cargando, setCargando] = useState(true);
   const [nuevo, setNuevo] = useState({ nombre: "", precio_usd: "", stock: "", umbral_stock: "5" });
+  const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function cargar() {
@@ -40,31 +51,56 @@ export default function InventarioPage() {
       return;
     }
 
-    const { error } = await supabase.from("productos").insert({
-      nombre: nuevo.nombre.trim(),
-      precio_usd: precio,
-      stock,
-      umbral_stock: isNaN(umbral) ? 5 : umbral,
-    });
+    setGuardando(true);
+    try {
+      const { error } = await supabase.from("productos").insert({
+        nombre: nuevo.nombre.trim(),
+        precio_usd: precio,
+        stock,
+        umbral_stock: isNaN(umbral) ? 5 : umbral,
+      });
 
-    if (error) {
-      setError(error.message);
-      return;
+      if (error) throw error;
+
+      setNuevo({ nombre: "", precio_usd: "", stock: "", umbral_stock: "5" });
+      await cargar();
+    } catch (err) {
+      setError(mensajeError(err));
+    } finally {
+      setGuardando(false);
     }
-
-    setNuevo({ nombre: "", precio_usd: "", stock: "", umbral_stock: "5" });
-    cargar();
   }
 
   async function actualizarCampo(id: string, campo: keyof Producto, valor: string | number | boolean) {
+    const anterior = productos.find((p) => p.id === id);
     setProductos((prev) => prev.map((p) => (p.id === id ? { ...p, [campo]: valor } : p)));
-    await supabase.from("productos").update({ [campo]: valor }).eq("id", id);
+    setError(null);
+    try {
+      const { error } = await supabase.from("productos").update({ [campo]: valor }).eq("id", id);
+      if (error) throw error;
+    } catch (err) {
+      if (anterior) setProductos((prev) => prev.map((p) => (p.id === id ? anterior : p)));
+      setError(mensajeError(err));
+    }
   }
 
-  async function eliminar(id: string) {
-    if (!confirm("¿Eliminar este producto? Esta acción no se puede deshacer.")) return;
-    await supabase.from("productos").delete().eq("id", id);
-    setProductos((prev) => prev.filter((p) => p.id !== id));
+  async function eliminar(producto: Producto) {
+    if (
+      !confirm(
+        `¿Seguro que quieres eliminar "${producto.nombre}"? Esta acción no se puede deshacer.`
+      )
+    ) {
+      return;
+    }
+
+    setError(null);
+    try {
+      const { error } = await supabase.from("productos").delete().eq("id", producto.id);
+      if (error) throw error;
+      setProductos((prev) => prev.filter((p) => p.id !== producto.id));
+    } catch (err) {
+      setError(mensajeError(err));
+    }
   }
 
   return (
@@ -116,9 +152,10 @@ export default function InventarioPage() {
         </div>
         <button
           type="submit"
-          className="py-2 rounded-lg bg-accent text-white text-sm font-medium"
+          disabled={guardando}
+          className="py-2 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-60"
         >
-          Agregar
+          {guardando ? "Agregando..." : "Agregar"}
         </button>
       </form>
       {error && <p className="text-sm text-debt -mt-4">{error}</p>}
@@ -173,13 +210,13 @@ export default function InventarioPage() {
                 </div>
                 <button
                   onClick={() => actualizarCampo(p.id, "activo", !p.activo)}
-                  className="text-xs text-ink-soft hover:text-ink"
+                  className="px-3 py-1.5 rounded-lg border border-line text-xs font-medium text-ink-soft hover:bg-paper shrink-0"
                 >
                   {p.activo ? "Desactivar" : "Activar"}
                 </button>
                 <button
-                  onClick={() => eliminar(p.id)}
-                  className="text-xs text-debt"
+                  onClick={() => eliminar(p)}
+                  className="px-3 py-1.5 rounded-lg bg-debt text-white text-xs font-medium hover:bg-debt/90 shrink-0"
                 >
                   Eliminar
                 </button>

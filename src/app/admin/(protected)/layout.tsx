@@ -5,40 +5,37 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AdminNav } from "@/components/AdminNav";
 
+type EstadoSesion = "verificando" | "autorizado" | "no-autorizado";
+
 export default function ProtectedAdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [autorizado, setAutorizado] = useState(false);
+  const [estado, setEstado] = useState<EstadoSesion>("verificando");
 
+  // Única fuente de verdad: onAuthStateChange emite el estado inicial de la
+  // sesión al suscribirse (evento INITIAL_SESSION) y luego cada cambio
+  // posterior. Evitamos una llamada aparte a getSession() para que no haya
+  // dos caminos async decidiendo lo mismo de forma independiente.
   useEffect(() => {
     const supabase = createClient();
-    let activo = true;
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!activo) return;
-      if (!session) {
-        router.replace("/admin/login");
-        return;
-      }
-      setAutorizado(true);
-    });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) router.replace("/admin/login");
+      setEstado(session ? "autorizado" : "no-autorizado");
     });
 
-    return () => {
-      activo = false;
-      subscription.unsubscribe();
-    };
-  }, [router]);
+    return () => subscription.unsubscribe();
+  }, []);
 
-  if (!autorizado) {
+  useEffect(() => {
+    if (estado === "no-autorizado") router.replace("/admin/login");
+  }, [estado, router]);
+
+  if (estado !== "autorizado") {
     return (
       <div className="flex-1 flex items-center justify-center">
         <p className="text-sm text-ink-soft">Verificando sesión...</p>
