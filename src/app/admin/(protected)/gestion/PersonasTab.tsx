@@ -6,6 +6,7 @@ import { formatUsd } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { compressImage, formatFileSize } from "@/lib/image";
 import { Avatar } from "@/components/Avatar";
+import { PhotoLightbox } from "@/components/PhotoLightbox";
 import type { Persona, TipoPersona } from "@/types/database";
 
 const tipos: TipoPersona[] = ["Estudiante", "Docente", "Personal"];
@@ -36,6 +37,7 @@ export function PersonasTab() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
   const fotoInputRef = useRef<HTMLInputElement>(null);
 
   const fotoPreviewUrl = useMemo(() => (foto ? URL.createObjectURL(foto) : null), [foto]);
@@ -178,6 +180,7 @@ export function PersonasTab() {
   );
 
   return (
+    <>
     <div className="flex flex-col gap-4">
       <div className="flex gap-2">
         <input
@@ -350,7 +353,12 @@ export function PersonasTab() {
 
             return (
               <li key={p.id} className={`p-3 flex items-center gap-3 ${!p.activo ? "opacity-50" : ""}`}>
-                <Avatar fotoUrl={p.foto_url} nombre={p.nombre} size="sm" />
+                <Avatar
+                  fotoUrl={p.foto_url}
+                  nombre={p.nombre}
+                  size="sm"
+                  onClick={p.foto_url ? () => setFotoAmpliada(p.foto_url) : undefined}
+                />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-ink truncate">{p.nombre}</p>
                   <p className="text-xs text-ink-soft">
@@ -386,5 +394,14 @@ export function PersonasTab() {
         </ul>
       )}
     </div>
+
+    {fotoAmpliada && (
+      <PhotoLightbox
+        src={fotoAmpliada}
+        alt="Foto de persona"
+        onClose={() => setFotoAmpliada(null)}
+      />
+    )}
+    </>
   );
 }

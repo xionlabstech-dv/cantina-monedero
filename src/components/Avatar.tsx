@@ -2,10 +2,12 @@ export function Avatar({
   fotoUrl,
   nombre,
   size = "md",
+  onClick,
 }: {
   fotoUrl: string | null;
   nombre: string;
   size?: "sm" | "md" | "lg";
+  onClick?: () => void;
 }) {
   const dims = { sm: "h-9 w-9 text-sm", md: "h-14 w-14 text-lg", lg: "h-20 w-20 text-2xl" }[
     size
@@ -22,7 +24,10 @@ export function Avatar({
       <img
         src={fotoUrl}
         alt={nombre}
-        className={`${dims} rounded-full object-cover border border-line shrink-0`}
+        onClick={onClick}
+        className={`${dims} rounded-full object-cover border border-line shrink-0 ${
+          onClick ? "cursor-pointer" : ""
+        }`}
       />
     );
   }
